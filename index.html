@@ -2,28 +2,54 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>刷题系统</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>词汇辨析刷题</title>
   <style>
     body {
+      margin: 0;
+      padding: 20px;
       background-color: #FFD1DC;
-      font-family: sans-serif;
-      padding: 20px;
+      font-family: Arial, sans-serif;
     }
-    .card {
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 12px;
-      padding: 20px;
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
       margin-bottom: 20px;
     }
+    header h1 {
+      font-size: 32px;
+      margin: 0 0 10px 0;
+    }
+    #topButtons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #timer {
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    #timer::before {
+      content: "⏰";
+      margin-right: 8px;
+    }
+    #questionCard {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
     .option {
+      background-color: white;
+      border-radius: 8px;
       padding: 10px;
       margin: 8px 0;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      cursor: pointer;
       border: 2px solid transparent;
-      transition: all 0.3s ease;
+      cursor: pointer;
+      transition: 0.3s;
     }
     .option.correct {
       border-color: green;
@@ -33,121 +59,137 @@
       border-color: red;
       background-color: #feb2b2;
     }
-    #uploadLabel, #controls {
-      margin-bottom: 20px;
+    #explanation {
+      margin-top: 10px;
+      font-size: 14px;
     }
-    button {
+    #stats {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    #actionButtons button {
       margin-right: 10px;
       padding: 8px 16px;
       border-radius: 8px;
       border: none;
+      background-color: white;
       cursor: pointer;
-    }
-    #timer, #accuracy {
-      margin: 10px 0;
-    }
-    .hidden {
-      display: none;
-    }
-    #explanationBox {
-      margin-top: 16px;
-      margin-bottom: 16px;
-      font-size: 15px;
+      transition: 0.3s;
     }
   </style>
 </head>
 <body>
-  <h1>刷题系统</h1>
-  <div id="uploadLabel">
-    <input type="file" id="excelFile" accept=".xlsx" />
-  </div>
-  <div id="controls" class="hidden">
+  <header>
+    <h1>词汇辨析刷题</h1>
+    <div id="topButtons">
+      <input type="file" id="excelFile" accept=".xlsx">
+      <button onclick="startQuiz()">开始刷题</button>
+      <button onclick="toggleFavorites()">收藏册</button>
+    </div>
     <div id="timer">用时: 0秒</div>
-    <div id="accuracy">正确率: 0%</div>
-    <div id="explanationBox"></div>
+  </header>
+
+  <div id="questionCard" class="hidden">
+    <div id="questionText"></div>
+    <div id="optionsContainer"></div>
+    <div id="explanation"></div>
+  </div>
+
+  <div id="stats"></div>
+  <div id="actionButtons">
     <button onclick="nextQuestion()">下一题</button>
+    <button onclick="toggleFavorite()">收藏</button>
     <button onclick="toggleFavorites()">查看收藏册</button>
   </div>
-  <div id="questionBox" class="card hidden"></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
     let questions = [];
-    let currentIndex = 0;
-    let startTime = Date.now();
+    let currentQuestion = null;
     let correctCount = 0;
     let totalAnswered = 0;
+    let startTime = Date.now();
     let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
     let isFavoriteMode = false;
 
     document.getElementById('excelFile').addEventListener('change', function (e) {
-      const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onload = function (e) {
-        const data = new Uint8Array(e.target.result);
+      reader.onload = function (event) {
+        const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        questions = json.slice(1).map(row => ({
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        questions = rows.slice(1).map(row => ({
           id: row[0],
-          content: row[1],
+          question: row[1],
           options: [row[2], row[3], row[4], row[5]],
           answer: row[6],
-          explanation: row[7],
-        })).filter(q => q.content);
+          explanation: row[7]
+        })).filter(q => q.question);
         localStorage.setItem('quizData', JSON.stringify(questions));
-        document.getElementById('controls').classList.remove('hidden');
-        nextQuestion();
-        setInterval(updateTimer, 1000);
+        startQuiz();
       };
-      reader.readAsArrayBuffer(file);
+      reader.readAsArrayBuffer(e.target.files[0]);
     });
 
-    function nextQuestion() {
-      document.getElementById('explanationBox').innerHTML = '';
-      const source = isFavoriteMode ? favorites.map(i => questions.find(q => q.id === i)) : questions;
-      if (!source.length) return alert('没有题目了！');
-      currentIndex = Math.floor(Math.random() * source.length);
-      showQuestion(source[currentIndex]);
-    }
-
-    function showQuestion(q) {
-      const box = document.getElementById('questionBox');
-      box.classList.remove('hidden');
-      box.innerHTML = `<div><strong>题目:</strong> ${q.content}</div>` +
-        q.options.map((opt, i) => `<div class="option" onclick="checkAnswer(this, '${String.fromCharCode(65+i)}', '${q.answer}', \
-        '${q.explanation.replace(/'/g, "&quot;")}')">${String.fromCharCode(65+i)}. ${opt}</div>`).join('') +
-        `<div><button onclick="toggleFavorite(${q.id})">${favorites.includes(q.id) ? '取消收藏' : '收藏'}</button></div>`;
-    }
-
-    function checkAnswer(elem, choice, answer, explanation) {
-      if (elem.parentNode.querySelector('.option.correct, .option.wrong')) return;
-      const options = elem.parentNode.querySelectorAll('.option');
-      options.forEach(opt => {
-        if (opt.textContent.startsWith(answer)) opt.classList.add('correct');
-        else if (opt === elem) opt.classList.add('wrong');
-      });
-      if (choice === answer) correctCount++;
-      totalAnswered++;
-      updateAccuracy();
-      document.getElementById('explanationBox').innerHTML = '<strong>解析:</strong> ' + explanation;
+    function startQuiz() {
+      if (!questions.length) {
+        const stored = localStorage.getItem('quizData');
+        if (stored) questions = JSON.parse(stored);
+      }
+      setInterval(updateTimer, 1000);
+      nextQuestion();
     }
 
     function updateTimer() {
-      const now = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('timer').innerText = `用时: ${now}秒`;
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('timer').innerText = `用时: ${seconds}秒`;
     }
 
-    function updateAccuracy() {
+    function nextQuestion() {
+      document.getElementById('explanation').innerHTML = '';
+      const source = isFavoriteMode ? favorites.map(id => questions.find(q => q.id === id)) : questions;
+      if (!source.length) return alert("没有题目了");
+      currentQuestion = source[Math.floor(Math.random() * source.length)];
+      showQuestion(currentQuestion);
+    }
+
+    function showQuestion(q) {
+      document.getElementById('questionCard').classList.remove('hidden');
+      document.getElementById('questionText').innerHTML = `<strong>题目：</strong>${q.question}`;
+      const optionsHTML = q.options.map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
+      }).join('');
+      document.getElementById('optionsContainer').innerHTML = optionsHTML;
+      updateStats();
+    }
+
+    function checkAnswer(elem, selected, correct) {
+      const allOptions = document.querySelectorAll('.option');
+      if ([...allOptions].some(opt => opt.classList.contains('correct') || opt.classList.contains('wrong'))) return;
+      allOptions.forEach(opt => {
+        const text = opt.textContent.trim();
+        if (text.startsWith(correct)) opt.classList.add('correct');
+        if (opt === elem && !text.startsWith(correct)) opt.classList.add('wrong');
+      });
+      if (selected === correct) correctCount++;
+      totalAnswered++;
+      document.getElementById('explanation').innerHTML = `<strong>解析：</strong>${currentQuestion.explanation}`;
+      updateStats();
+    }
+
+    function updateStats() {
       const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
-      document.getElementById('accuracy').innerText = `正确率: ${rate}%`;
+      document.getElementById('stats').innerText = `已做 ${totalAnswered} 题，正确率：${rate}%`;
     }
 
-    function toggleFavorite(id) {
-      if (favorites.includes(id)) favorites = favorites.filter(f => f !== id);
-      else favorites.push(id);
+    function toggleFavorite() {
+      if (!currentQuestion) return;
+      const index = favorites.indexOf(currentQuestion.id);
+      if (index === -1) favorites.push(currentQuestion.id);
+      else favorites.splice(index, 1);
       localStorage.setItem('favorites', JSON.stringify(favorites));
-      nextQuestion();
     }
 
     function toggleFavorites() {
@@ -155,13 +197,10 @@
       nextQuestion();
     }
 
-    // 自动加载本地缓存的数据
-    const saved = localStorage.getItem('quizData');
-    if (saved) {
-      questions = JSON.parse(saved);
-      document.getElementById('controls').classList.remove('hidden');
-      nextQuestion();
-      setInterval(updateTimer, 1000);
+    const storedData = localStorage.getItem('quizData');
+    if (storedData) {
+      questions = JSON.parse(storedData);
+      startQuiz();
     }
   </script>
 </body>
