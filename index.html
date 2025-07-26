@@ -72,9 +72,9 @@
       const container = document.getElementById('quizContainer');
       container.innerHTML = `
         <div class="question-box">
-          <div><strong>题目 ${currentIndex + 1}：</strong> ${q['题目']}</div>
+          <div><strong>题干 ${currentIndex + 1}：</strong> ${q['题干']}</div>
           <div class="options">
-            ${['A', 'B', 'C', 'D'].map(letter => `
+            ${['选项A', '选项B', '选项C', '选项D'].map(letter => `
               <label><input type="radio" name="option" value="${letter}" /> ${letter}. ${q[letter]}</label>
             `).join('')}
           </div>
@@ -93,11 +93,11 @@
         feedback.innerHTML = '<span class="wrong">请选择一个选项。</span>';
         return;
       }
-      if (selected.value === q['答案']) {
+      if (selected.value === q['正确答案']) {
         feedback.innerHTML = '<span class="correct">✅ 正确！</span>';
         correctCount++;
       } else {
-        feedback.innerHTML = `<span class="wrong">❌ 错误！正确答案是 ${q['答案']}</span>`;
+        feedback.innerHTML = `<span class="wrong">❌ 错误！正确答案是 ${q['正确答案']}</span>`;
       }
       feedback.innerHTML += `<div>解析：${q['解析'] || '无'}</div>`;
       setTimeout(() => {
