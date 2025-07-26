@@ -3,120 +3,142 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>词义辨析刷题</title>
+  <title>词义辨析题小测</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    .question-box { border: 1px solid #ccc; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-    .options button { display: block; margin: 5px 0; padding: 10px; width: 100%; }
-    .correct { background-color: #d4edda; }
-    .incorrect { background-color: #f8d7da; }
-    #stats { margin-top: 20px; }
-    #timer { font-weight: bold; }
-    .hidden { display: none; }
-    .favorite { color: gold; cursor: pointer; }
+    body { font-family: sans-serif; margin: 2rem; }
+    #quiz-container, #favorites-container { margin-top: 2rem; }
+    .question-card { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
+    .correct { color: green; }
+    .wrong { color: red; }
+    button { margin-top: 1rem; }
+    .option { display: block; margin: 0.5rem 0; }
   </style>
 </head>
 <body>
-  <h1>词义辨析刷题</h1>
-
+  <h1>词义辨析题小测</h1>
   <input type="file" id="fileInput" accept=".xlsx" />
   <button onclick="startQuiz()">开始刷题</button>
+  <button onclick="showFavorites()">📘 查看收藏题</button>
 
-  <div id="quizContainer" class="hidden">
-    <div id="timer">⏱ 时间: <span id="elapsed">0</span>s</div>
-    <div id="questionBox" class="question-box">
-      <div id="question"></div>
-      <div class="options" id="options"></div>
-      <div id="explanation"></div>
-      <div id="favBtn">⭐ 收藏错题</div>
-    </div>
-    <div id="stats"></div>
-    <button onclick="nextQuestion()">下一题</button>
-  </div>
+  <div id="quiz-container"></div>
+  <div id="favorites-container" style="display:none;"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    let questions = [],
-        current = 0,
-        correct = 0,
-        total = 0,
-        startTime,
-        timerInterval,
-        favorites = [];
+    let questions = [];
+    let currentIndex = 0;
+    let score = 0;
+    let startTime = 0;
+
+    function loadFavorites() {
+      return JSON.parse(localStorage.getItem("favorites") || "[]");
+    }
+
+    function saveFavorites(favs) {
+      localStorage.setItem("favorites", JSON.stringify(favs));
+    }
+
+    function showFavorites() {
+      const favs = loadFavorites();
+      document.getElementById("quiz-container").style.display = "none";
+      const container = document.getElementById("favorites-container");
+      container.style.display = "block";
+      container.innerHTML = "<h2>收藏题目</h2>";
+      favs.forEach(q => {
+        const div = document.createElement("div");
+        div.className = "question-card";
+        div.innerHTML = `
+          <p><b>题目：</b>${q.question}</p>
+          ${q.options.map(o => `<div class='option'>${o}</div>`).join('')}
+          <p><b>正确答案：</b>${q.correct}</p>
+          <p><b>解析：</b>${q.explanation}</p>
+        `;
+        container.appendChild(div);
+      });
+    }
 
     function startQuiz() {
-      if (questions.length === 0) return alert("请先导入题库 Excel 文件");
-      document.getElementById("quizContainer").classList.remove("hidden");
+      if (!questions.length) return alert("请先上传Excel文件");
+      currentIndex = 0;
+      score = 0;
       startTime = Date.now();
-      timerInterval = setInterval(() => {
-        document.getElementById("elapsed").textContent = Math.floor((Date.now() - startTime)/1000);
-      }, 1000);
-      shuffleArray(questions);
-      current = -1;
-      nextQuestion();
+      document.getElementById("favorites-container").style.display = "none";
+      document.getElementById("quiz-container").style.display = "block";
+      showQuestion();
     }
 
-    function nextQuestion() {
-      document.getElementById("explanation").innerHTML = "";
-      document.getElementById("favBtn").style.display = "none";
-      current++;
-      if (current >= questions.length) {
-        clearInterval(timerInterval);
-        alert(`刷题结束\n正确：${correct}/${total}`);
-        return;
-      }
-      const q = questions[current];
-      document.getElementById("question").textContent = `${q["题号"]}. ${q["题干"]}`;
-      const opts = ["A", "B", "C", "D"];
-      const container = document.getElementById("options");
+    function showQuestion() {
+      const q = questions[currentIndex];
+      const container = document.getElementById("quiz-container");
       container.innerHTML = "";
-      opts.forEach(opt => {
-        const btn = document.createElement("button");
-        btn.textContent = `${opt}. ${q[`选项${opt}`]}`;
-        btn.onclick = () => checkAnswer(opt, q);
-        container.appendChild(btn);
-      });
-      updateStats();
+      const card = document.createElement("div");
+      card.className = "question-card";
+      card.innerHTML = `
+        <p><b>题目 ${currentIndex + 1}/${questions.length}：</b>${q.question}</p>
+        ${q.options.map((o, i) => `<label class='option'><input type='radio' name='opt' value='${o}'> ${o}</label>`).join('')}
+        <button onclick="checkAnswer()">提交</button>
+        <button onclick="addToFavorites()">收藏</button>
+      `;
+      container.appendChild(card);
     }
 
-    function checkAnswer(selected, q) {
-      const buttons = document.querySelectorAll("#options button");
-      buttons.forEach(btn => {
-        btn.disabled = true;
-        if (btn.textContent.startsWith(q["正确答案"])) {
-          btn.classList.add("correct");
-        } else if (btn.textContent.startsWith(selected)) {
-          btn.classList.add("incorrect");
+    function checkAnswer() {
+      const selected = document.querySelector("input[name='opt']:checked");
+      if (!selected) return alert("请选择一个选项");
+      const q = questions[currentIndex];
+      const result = document.createElement("p");
+      if (selected.value === q.correct) {
+        result.textContent = "✅ 回答正确！";
+        result.className = "correct";
+        score++;
+      } else {
+        result.textContent = `❌ 错误，正确答案是 ${q.correct}`;
+        result.className = "wrong";
+      }
+      result.innerHTML += `<br><b>解析：</b>${q.explanation}`;
+      document.querySelector(".question-card").appendChild(result);
+      setTimeout(() => {
+        currentIndex++;
+        if (currentIndex < questions.length) {
+          showQuestion();
+        } else {
+          const time = ((Date.now() - startTime) / 1000).toFixed(1);
+          document.getElementById("quiz-container").innerHTML = `
+            <h2>答题完成 ✅</h2>
+            <p>正确率：${score}/${questions.length}</p>
+            <p>耗时：${time} 秒</p>
+          `;
         }
-      });
-      if (selected === q["正确答案"]) correct++;
-      else favorites.push(q);
-      total++;
-      document.getElementById("explanation").textContent = `解析：${q["解析"]}`;
-      document.getElementById("favBtn").style.display = selected === q["正确答案"] ? "none" : "block";
-      updateStats();
+      }, 1200);
     }
 
-    function updateStats() {
-      document.getElementById("stats").textContent = `进度：${total}/${questions.length}，正确率：${((correct/Math.max(total,1))*100).toFixed(1)}%`;
-    }
-
-    function shuffleArray(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+    function addToFavorites() {
+      const q = questions[currentIndex];
+      const favs = loadFavorites();
+      if (!favs.some(f => f.question === q.question)) {
+        favs.push(q);
+        saveFavorites(favs);
+        alert("已收藏题目 ✅");
+      } else {
+        alert("题目已存在收藏册 📘");
       }
     }
 
-    document.getElementById("fileInput").addEventListener("change", (e) => {
+    document.getElementById("fileInput").addEventListener("change", function(e) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = function(e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: "array" });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        questions = XLSX.utils.sheet_to_json(sheet);
-        alert("题库导入成功，共" + questions.length + "题");
+        const json = XLSX.utils.sheet_to_json(sheet);
+        questions = json.map(row => ({
+          question: row["题目"],
+          options: [row["A"], row["B"], row["C"], row["D"]],
+          correct: row["答案"],
+          explanation: row["解析"]
+        }));
+        alert("📘 文件导入成功，共导入 " + questions.length + " 道题");
       };
       reader.readAsArrayBuffer(file);
     });
