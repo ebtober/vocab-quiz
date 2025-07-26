@@ -49,6 +49,11 @@
     .hidden {
       display: none;
     }
+    #explanationBox {
+      margin-top: 16px;
+      margin-bottom: 16px;
+      font-size: 15px;
+    }
   </style>
 </head>
 <body>
@@ -57,10 +62,11 @@
     <input type="file" id="excelFile" accept=".xlsx" />
   </div>
   <div id="controls" class="hidden">
-    <button onclick="nextQuestion()">下一题</button>
-    <button onclick="toggleFavorites()">查看收藏册</button>
     <div id="timer">用时: 0秒</div>
     <div id="accuracy">正确率: 0%</div>
+    <div id="explanationBox"></div>
+    <button onclick="nextQuestion()">下一题</button>
+    <button onclick="toggleFavorites()">查看收藏册</button>
   </div>
   <div id="questionBox" class="card hidden"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -98,7 +104,8 @@
     });
 
     function nextQuestion() {
-      const source = isFavoriteMode ? favorites.map(i => questions[i]) : questions;
+      document.getElementById('explanationBox').innerHTML = '';
+      const source = isFavoriteMode ? favorites.map(i => questions.find(q => q.id === i)) : questions;
       if (!source.length) return alert('没有题目了！');
       currentIndex = Math.floor(Math.random() * source.length);
       showQuestion(source[currentIndex]);
@@ -123,9 +130,7 @@
       if (choice === answer) correctCount++;
       totalAnswered++;
       updateAccuracy();
-      const explain = document.createElement('div');
-      explain.innerHTML = '<strong>解析:</strong> ' + explanation;
-      elem.parentNode.appendChild(explain);
+      document.getElementById('explanationBox').innerHTML = '<strong>解析:</strong> ' + explanation;
     }
 
     function updateTimer() {
