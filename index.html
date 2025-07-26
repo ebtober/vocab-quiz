@@ -1,143 +1,162 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>词义辨析题库</title>
+  <title>刷题系统</title>
   <style>
-    body { font-family: sans-serif; max-width: 700px; margin: auto; padding: 20px; }
-    .question-box { margin-bottom: 20px; }
-    .option { border: 1px solid #ccc; padding: 10px; margin: 5px 0; cursor: pointer; border-radius: 6px; }
-    .option:hover { background-color: #f0f0f0; }
-    .correct { background-color: #d4edda; border-color: #28a745; color: #155724; }
-    .wrong { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
-    .controls { margin-top: 20px; }
-    #favorites-btn { margin-left: 10px; }
-    #timer, #accuracy { font-weight: bold; margin-top: 10px; }
+    body {
+      background-color: #FFD1DC;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .option {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .option.correct {
+      border-color: green;
+      background-color: #c6f6d5;
+    }
+    .option.wrong {
+      border-color: red;
+      background-color: #feb2b2;
+    }
+    #uploadLabel, #controls {
+      margin-bottom: 20px;
+    }
+    button {
+      margin-right: 10px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+    #timer, #accuracy {
+      margin: 10px 0;
+    }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>词义辨析题库</h1>
-  <input type="file" id="fileInput" accept=".xlsx" />
-  <div id="timer">计时：0秒</div>
-  <div id="accuracy">正确率：0%</div>
-  <div class="question-box" id="quizBox"></div>
-  <div class="controls">
-    <button onclick="nextQuestion()">下一题</button>
-    <button id="favorites-btn" onclick="toggleFavorite()">收藏</button>
-    <button onclick="viewFavorites()">查看收藏册</button>
+  <h1>刷题系统</h1>
+  <div id="uploadLabel">
+    <input type="file" id="excelFile" accept=".xlsx" />
   </div>
-  <div id="explanation"></div>
+  <div id="controls" class="hidden">
+    <button onclick="nextQuestion()">下一题</button>
+    <button onclick="toggleFavorites()">查看收藏册</button>
+    <div id="timer">用时: 0秒</div>
+    <div id="accuracy">正确率: 0%</div>
+  </div>
+  <div id="questionBox" class="card hidden"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    let questions = [],
-        currentQuestion = {},
-        currentIndex = 0,
-        correctCount = 0,
-        totalCount = 0,
-        favorites = JSON.parse(localStorage.getItem('favorites') || '[]'),
-        startTime = Date.now();
+    let questions = [];
+    let currentIndex = 0;
+    let startTime = Date.now();
+    let correctCount = 0;
+    let totalAnswered = 0;
+    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    let isFavoriteMode = false;
 
-    const quizBox = document.getElementById("quizBox");
-    const explanationBox = document.getElementById("explanation");
-
-    document.getElementById("fileInput").addEventListener("change", function (e) {
+    document.getElementById('excelFile').addEventListener('change', function (e) {
+      const file = e.target.files[0];
       const reader = new FileReader();
       reader.onload = function (e) {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        json.shift(); // remove header row
-        questions = json.map(row => ({
-          id: row[0], question: row[1], options: row.slice(2, 6), answer: row[6].toUpperCase(), explanation: row[7] || ""
-        }));
+        questions = json.slice(1).map(row => ({
+          id: row[0],
+          content: row[1],
+          options: [row[2], row[3], row[4], row[5]],
+          answer: row[6],
+          explanation: row[7],
+        })).filter(q => q.content);
         localStorage.setItem('quizData', JSON.stringify(questions));
+        document.getElementById('controls').classList.remove('hidden');
         nextQuestion();
-        startTimer();
+        setInterval(updateTimer, 1000);
       };
-      reader.readAsArrayBuffer(e.target.files[0]);
+      reader.readAsArrayBuffer(file);
     });
 
-    function startTimer() {
-      setInterval(() => {
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        document.getElementById("timer").textContent = `计时：${seconds}秒`;
-      }, 1000);
-    }
-
     function nextQuestion() {
-      if (questions.length === 0) return;
-      currentIndex = Math.floor(Math.random() * questions.length);
-      currentQuestion = questions[currentIndex];
-      showQuestion();
+      const source = isFavoriteMode ? favorites.map(i => questions[i]) : questions;
+      if (!source.length) return alert('没有题目了！');
+      currentIndex = Math.floor(Math.random() * source.length);
+      showQuestion(source[currentIndex]);
     }
 
-    function showQuestion() {
-      explanationBox.textContent = "";
-      quizBox.innerHTML = `<div><strong>题目：</strong>${currentQuestion.question}</div>`;
-      currentQuestion.options.forEach((opt, index) => {
-        const letter = String.fromCharCode(65 + index);
-        const div = document.createElement("div");
-        div.textContent = `${letter}. ${opt}`;
-        div.classList.add("option");
-        div.onclick = () => checkAnswer(div, letter);
-        quizBox.appendChild(div);
+    function showQuestion(q) {
+      const box = document.getElementById('questionBox');
+      box.classList.remove('hidden');
+      box.innerHTML = `<div><strong>题目:</strong> ${q.content}</div>` +
+        q.options.map((opt, i) => `<div class="option" onclick="checkAnswer(this, '${String.fromCharCode(65+i)}', '${q.answer}', \
+        '${q.explanation.replace(/'/g, "&quot;")}')">${String.fromCharCode(65+i)}. ${opt}</div>`).join('') +
+        `<div><button onclick="toggleFavorite(${q.id})">${favorites.includes(q.id) ? '取消收藏' : '收藏'}</button></div>`;
+    }
+
+    function checkAnswer(elem, choice, answer, explanation) {
+      if (elem.parentNode.querySelector('.option.correct, .option.wrong')) return;
+      const options = elem.parentNode.querySelectorAll('.option');
+      options.forEach(opt => {
+        if (opt.textContent.startsWith(answer)) opt.classList.add('correct');
+        else if (opt === elem) opt.classList.add('wrong');
       });
-      updateFavoriteBtn();
+      if (choice === answer) correctCount++;
+      totalAnswered++;
+      updateAccuracy();
+      const explain = document.createElement('div');
+      explain.innerHTML = '<strong>解析:</strong> ' + explanation;
+      elem.parentNode.appendChild(explain);
     }
 
-    function checkAnswer(div, selected) {
-      const options = document.querySelectorAll(".option");
-      options.forEach(opt => opt.onclick = null); // disable clicking again
-      totalCount++;
-      if (selected === currentQuestion.answer) {
-        correctCount++;
-        div.classList.add("correct");
-      } else {
-        div.classList.add("wrong");
-        options.forEach(opt => {
-          if (opt.textContent.startsWith(currentQuestion.answer + '.')) {
-            opt.classList.add("correct");
-          }
-        });
-      }
-      document.getElementById("accuracy").textContent = `正确率：${Math.round((correctCount / totalCount) * 100)}%`;
-      explanationBox.textContent = `解析：${currentQuestion.explanation}`;
+    function updateTimer() {
+      const now = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('timer').innerText = `用时: ${now}秒`;
     }
 
-    function toggleFavorite() {
-      const id = currentQuestion.id;
-      const exists = favorites.find(q => q.id === id);
-      if (exists) {
-        favorites = favorites.filter(q => q.id !== id);
-      } else {
-        favorites.push(currentQuestion);
-      }
+    function updateAccuracy() {
+      const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
+      document.getElementById('accuracy').innerText = `正确率: ${rate}%`;
+    }
+
+    function toggleFavorite(id) {
+      if (favorites.includes(id)) favorites = favorites.filter(f => f !== id);
+      else favorites.push(id);
       localStorage.setItem('favorites', JSON.stringify(favorites));
-      updateFavoriteBtn();
-    }
-
-    function updateFavoriteBtn() {
-      const id = currentQuestion.id;
-      const btn = document.getElementById("favorites-btn");
-      btn.textContent = favorites.find(q => q.id === id) ? "取消收藏" : "收藏";
-    }
-
-    function viewFavorites() {
-      if (favorites.length === 0) return alert("暂无收藏题目");
-      questions = [...favorites];
       nextQuestion();
     }
 
-    // 加载保存的题库（如果有）
-    window.onload = () => {
-      const saved = localStorage.getItem("quizData");
-      if (saved) {
-        questions = JSON.parse(saved);
-        nextQuestion();
-        startTimer();
-      }
+    function toggleFavorites() {
+      isFavoriteMode = !isFavoriteMode;
+      nextQuestion();
+    }
+
+    // 自动加载本地缓存的数据
+    const saved = localStorage.getItem('quizData');
+    if (saved) {
+      questions = JSON.parse(saved);
+      document.getElementById('controls').classList.remove('hidden');
+      nextQuestion();
+      setInterval(updateTimer, 1000);
     }
   </script>
 </body>
