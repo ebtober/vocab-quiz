@@ -47,9 +47,17 @@
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        localStorage.setItem('quizData', JSON.stringify(json));
-        callback(json);
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const keys = ['题号', '题目', 'A', 'B', 'C', 'D', '答案', '解析'];
+        const parsed = json.slice(1).map(row => {
+          const obj = {};
+          keys.forEach((k, i) => obj[k] = row[i]);
+          return obj;
+        });
+
+        localStorage.setItem('quizData', JSON.stringify(parsed));
+        callback(parsed);
       };
       reader.readAsArrayBuffer(file);
     }
@@ -72,9 +80,9 @@
       const container = document.getElementById('quizContainer');
       container.innerHTML = `
         <div class="question-box">
-          <div><strong>题干 ${currentIndex + 1}：</strong> ${q['题干']}</div>
+          <div><strong>题目 ${currentIndex + 1}：</strong> ${q['题目']}</div>
           <div class="options">
-            ${['选项A', '选项B', '选项C', '选项D'].map(letter => `
+            ${['A', 'B', 'C', 'D'].map(letter => `
               <label><input type="radio" name="option" value="${letter}" /> ${letter}. ${q[letter]}</label>
             `).join('')}
           </div>
@@ -93,11 +101,11 @@
         feedback.innerHTML = '<span class="wrong">请选择一个选项。</span>';
         return;
       }
-      if (selected.value === q['正确答案']) {
+      if (selected.value === q['答案']) {
         feedback.innerHTML = '<span class="correct">✅ 正确！</span>';
         correctCount++;
       } else {
-        feedback.innerHTML = `<span class="wrong">❌ 错误！正确答案是 ${q['正确答案']}</span>`;
+        feedback.innerHTML = `<span class="wrong">❌ 错误！正确答案是 ${q['答案']}</span>`;
       }
       feedback.innerHTML += `<div>解析：${q['解析'] || '无'}</div>`;
       setTimeout(() => {
@@ -140,7 +148,6 @@
       }
     });
 
-    // 自动加载缓存的 quizData（如果有）
     const cached = localStorage.getItem('quizData');
     if (cached) {
       quizData = shuffle(JSON.parse(cached));
