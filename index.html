@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>词义辨析刷题</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .question-box { border: 1px solid #ccc; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+    .options button { display: block; margin: 5px 0; padding: 10px; width: 100%; }
+    .correct { background-color: #d4edda; }
+    .incorrect { background-color: #f8d7da; }
+    #stats { margin-top: 20px; }
+    #timer { font-weight: bold; }
+    .hidden { display: none; }
+    .favorite { color: gold; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>词义辨析刷题</h1>
+
+  <input type="file" id="fileInput" accept=".xlsx" />
+  <button onclick="startQuiz()">开始刷题</button>
+
+  <div id="quizContainer" class="hidden">
+    <div id="timer">⏱ 时间: <span id="elapsed">0</span>s</div>
+    <div id="questionBox" class="question-box">
+      <div id="question"></div>
+      <div class="options" id="options"></div>
+      <div id="explanation"></div>
+      <div id="favBtn">⭐ 收藏错题</div>
+    </div>
+    <div id="stats"></div>
+    <button onclick="nextQuestion()">下一题</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    let questions = [],
+        current = 0,
+        correct = 0,
+        total = 0,
+        startTime,
+        timerInterval,
+        favorites = [];
+
+    function startQuiz() {
+      if (questions.length === 0) return alert("请先导入题库 Excel 文件");
+      document.getElementById("quizContainer").classList.remove("hidden");
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        document.getElementById("elapsed").textContent = Math.floor((Date.now() - startTime)/1000);
+      }, 1000);
+      shuffleArray(questions);
+      current = -1;
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      document.getElementById("explanation").innerHTML = "";
+      document.getElementById("favBtn").style.display = "none";
+      current++;
+      if (current >= questions.length) {
+        clearInterval(timerInterval);
+        alert(`刷题结束\n正确：${correct}/${total}`);
+        return;
+      }
+      const q = questions[current];
+      document.getElementById("question").textContent = `${q["题号"]}. ${q["题干"]}`;
+      const opts = ["A", "B", "C", "D"];
+      const container = document.getElementById("options");
+      container.innerHTML = "";
+      opts.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.textContent = `${opt}. ${q[`选项${opt}`]}`;
+        btn.onclick = () => checkAnswer(opt, q);
+        container.appendChild(btn);
+      });
+      updateStats();
+    }
+
+    function checkAnswer(selected, q) {
+      const buttons = document.querySelectorAll("#options button");
+      buttons.forEach(btn => {
+        btn.disabled = true;
+        if (btn.textContent.startsWith(q["正确答案"])) {
+          btn.classList.add("correct");
+        } else if (btn.textContent.startsWith(selected)) {
+          btn.classList.add("incorrect");
+        }
+      });
+      if (selected === q["正确答案"]) correct++;
+      else favorites.push(q);
+      total++;
+      document.getElementById("explanation").textContent = `解析：${q["解析"]}`;
+      document.getElementById("favBtn").style.display = selected === q["正确答案"] ? "none" : "block";
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById("stats").textContent = `进度：${total}/${questions.length}，正确率：${((correct/Math.max(total,1))*100).toFixed(1)}%`;
+    }
+
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        questions = XLSX.utils.sheet_to_json(sheet);
+        alert("题库导入成功，共" + questions.length + "题");
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>
