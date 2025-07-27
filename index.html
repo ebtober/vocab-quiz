@@ -114,25 +114,63 @@
   let answeredIds = [];
 
   document.getElementById('excelFile').addEventListener('change', function (e) {
-    const reader = new FileReader();
-    reader.onload = function (event) {
-      const data = new Uint8Array(event.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      questions = rows.slice(1).map((row, index) => ({
-  id: String(row[0] || index + 1), // 如果第0列为空，用序号代替
-  question: row[1],
-  options: [row[2], row[3], row[4], row[5]],
-  answer: row[6],
-  explanation: row[7]
-})).filter(q => q.question);
-      localStorage.setItem('quizData', JSON.stringify(questions));
-      answeredIds = []; // 清空已做记录
-      startQuiz();
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    const data = new Uint8Array(event.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (rows.length < 2) {
+      alert("表格内容为空！");
+      return;
+    }
+
+    const header = rows[0];
+
+    // 支持模糊匹配列名
+    const findColumnIndex = (patterns) => {
+      return header.findIndex(col =>
+        typeof col === "string" &&
+        patterns.some(pattern => new RegExp(pattern, "i").test(col.trim()))
+      );
     };
-    reader.readAsArrayBuffer(e.target.files[0]);
-  });
+
+    // 正则关键字模式组
+    const idx = {
+      question: findColumnIndex(["题干", "题目", "问题"]),
+      optionA: findColumnIndex(["^A$", "选项A", "A选项", "A项", "^A[\\.:：\\s]"]),
+      optionB: findColumnIndex(["^B$", "选项B", "B选项", "B项", "^B[\\.:：\\s]"]),
+      optionC: findColumnIndex(["^C$", "选项C", "C选项", "C项", "^C[\\.:：\\s]"]),
+      optionD: findColumnIndex(["^D$", "选项D", "D选项", "D项", "^D[\\.:：\\s]"]),
+      answer: findColumnIndex(["正确答案", "答案"]),
+      explanation: findColumnIndex(["解析", "答案解析", "详细解析"])
+    };
+
+    // 检查是否缺失关键列
+    if (Object.values(idx).some(i => i === -1)) {
+      alert("表头缺失，请确保包含：题干、选项A~D、正确答案、解析");
+      return;
+    }
+
+    // 生成题目数组
+    questions = rows.slice(1).map((row, index) => ({
+      id: String(index + 1), // 自动编号
+      question: row[idx.question],
+      options: [row[idx.optionA], row[idx.optionB], row[idx.optionC], row[idx.optionD]],
+      answer: row[idx.answer],
+      explanation: row[idx.explanation]
+    })).filter(q =>
+      q.question &&
+      q.options.every(opt => typeof opt === "string" && opt.trim() !== "")
+    );
+
+    localStorage.setItem('quizData', JSON.stringify(questions));
+    answeredIds = []; // 清空已做记录
+    startQuiz();
+  };
+  reader.readAsArrayBuffer(e.target.files[0]);
+});
 
   function startQuiz() {
     if (!questions.length) {
