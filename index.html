@@ -180,9 +180,8 @@ function showQuestion(q) {
     const total = favoriteList.length;
     displayPrefix = `${currentIndex}/${total} 题目：`;
   } else {
-    const unansweredList = questions.filter(q => !answeredIds.includes(q.id));
-    const currentIndex = questions.findIndex(item => item.id === q.id) + 1;
     const total = questions.length;
+    const currentIndex = answeredIds.length + 1;
     displayPrefix = `${currentIndex}/${total} 题目：`;
   }
 
