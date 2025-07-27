@@ -120,13 +120,13 @@
       const workbook = XLSX.read(data, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      questions = rows.slice(1).map(row => ({
-        id: String(row[0]), // 强制 id 为字符串
-        question: row[1],
-        options: [row[2], row[3], row[4], row[5]],
-        answer: row[6],
-        explanation: row[7]
-      })).filter(q => q.question);
+      questions = rows.slice(1).map((row, index) => ({
+  id: String(row[0] || index + 1), // 如果第0列为空，用序号代替
+  question: row[1],
+  options: [row[2], row[3], row[4], row[5]],
+  answer: row[6],
+  explanation: row[7]
+})).filter(q => q.question);
       localStorage.setItem('quizData', JSON.stringify(questions));
       answeredIds = []; // 清空已做记录
       startQuiz();
