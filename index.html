@@ -1,396 +1,207 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>词汇辨析刷题</title>
-<style>
-  body {
-    margin: 0; padding: 20px; 
-    background-color: #E2D2D2; 
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
-  }
-  header {
-    display: flex; align-items: center; justify-content: flex-start;
-    margin-bottom: 10px;
-  }
-  header h1 {
-    font-size: 2.4rem;
-    font-weight: bold;
-    margin: 0;
-  }
-  #controls {
-    display: flex; gap: 12px; margin-bottom: 15px;
-  }
-  button, input[type="file"] {
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    background: #fff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    transition: background-color 0.2s;
-  }
-  button:hover, input[type="file"]:hover {
-    background: #f0f0f0;
-  }
-  #timer {
-    display: flex; align-items: center; font-size: 1.1rem; margin-bottom: 15px;
-    gap: 6px;
-  }
-  #timer svg {
-    width: 24px; height: 24px; fill: #666;
-  }
-  #question-box {
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 16px;
-    padding: 20px;
-    max-width: 700px;
-    margin-bottom: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  }
-  #question-text {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin-bottom: 18px;
-  }
-  .option {
-    background: #fff;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 12px;
-    cursor: pointer;
-    user-select: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border: 2px solid transparent;
-    transition: border-color 0.25s;
-  }
-  .option:hover {
-    border-color: #888;
-  }
-  .option.correct {
-    background-color: #c8f7c5;
-    border-color: #2ca02c;
-    color: #1a531a;
-    font-weight: 600;
-  }
-  .option.wrong {
-    background-color: #f7c8c8;
-    border-color: #d42c2c;
-    color: #7f1a1a;
-    font-weight: 600;
-  }
-  #explanation {
-    margin-top: 8px;
-    font-size: 1rem;
-    color: #333;
-    border-top: 1px solid #ccc;
-    padding-top: 10px;
-  }
-  #progress {
-    max-width: 700px;
-    margin-bottom: 12px;
-    font-size: 1rem;
-  }
-  #action-buttons {
-    display: flex; gap: 14px; max-width: 700px;
-  }
-  #action-buttons button {
-    flex: 1;
-    background: #fff;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.12);
-    font-weight: 600;
-  }
-  #action-buttons button:hover {
-    background: #f0f0f0;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>词汇辨析刷题</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #E2D2D2;
+      font-family: Arial, sans-serif;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    header h1 {
+      font-size: 32px;
+      margin: 0 0 10px 0;
+    }
+    #topButtons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #timer {
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    #timer::before {
+      content: "⏰";
+      margin-right: 8px;
+    }
+    #questionCard {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .option {
+      background-color: white;
+      border-radius: 8px;
+      padding: 10px;
+      margin: 8px 0;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .option.correct {
+      border-color: green;
+      background-color: #c6f6d5;
+    }
+    .option.wrong {
+      border-color: red;
+      background-color: #feb2b2;
+    }
+    #explanation {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    #stats {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    #actionButtons button {
+      margin-right: 10px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <h1>词汇辨析刷题</h1>
+    <div id="topButtons">
+      <input type="file" id="excelFile" accept=".xlsx">
+      <button onclick="startQuiz()">开始刷题</button>
+      <button onclick="toggleFavorites()">收藏册</button>
+    </div>
+    <div id="timer">用时: 0秒</div>
+  </header>
 
-<header>
-  <h1>词汇辨析刷题</h1>
-</header>
+  <div id="questionCard" class="hidden">
+    <div id="questionText"></div>
+    <div id="optionsContainer"></div>
+    <div id="explanation"></div>
+  </div>
 
-<div id="controls">
-  <input type="file" id="fileInput" accept=".xlsx,.xls" />
-  <button id="startBtn" disabled>开始刷题</button>
-  <button id="showFavoritesBtn" disabled>收藏册</button>
-</div>
+  <div id="stats"></div>
+  <div id="actionButtons">
+    <button onclick="nextQuestion()">下一题</button>
+    <button onclick="toggleFavorite()">收藏</button>
+    <button onclick="toggleFavorites()">查看收藏册</button>
+  </div>
 
-<div id="timer">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1Zm0 20a9 9 0 1 1 9-9 9.01 9.01 0 0 1-9 9Zm.5-13h-1v6l5.25 3.15.5-.86-4.75-2.79Z"/></svg>
-  <span id="timeDisplay">00:00</span>
-</div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    let questions = [];
+    let currentQuestion = null;
+    let correctCount = 0;
+    let totalAnswered = 0;
+    let startTime = Date.now();
+    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    let isFavoriteMode = false;
 
-<div id="question-box" style="display:none;">
-  <div id="question-text"></div>
-  <div id="options-container"></div>
-  <div id="explanation" style="display:none;"></div>
-</div>
-
-<div id="progress" style="display:none;">
-  题目进度：<span id="currentIndex">0</span> / <span id="totalQuestions">0</span>，
-  正确率：<span id="accuracy">0%</span>
-</div>
-
-<div id="action-buttons" style="display:none;">
-  <button id="nextBtn" disabled>下一题</button>
-  <button id="collectBtn" disabled>收藏</button>
-  <button id="viewFavoritesBtn" disabled>查看收藏册</button>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script>
-  let questions = [];
-  let currentIdx = 0;
-  let correctCount = 0;
-  let answeredCount = 0;
-  let startTime = 0;
-  let timerInterval = null;
-  let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-  let storedQuestions = JSON.parse(localStorage.getItem('questions') || 'null');
-
-  // 初始化如果本地存有题目就加载
-  if (storedQuestions && Array.isArray(storedQuestions)) {
-    questions = storedQuestions;
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('showFavoritesBtn').disabled = false;
-    document.getElementById('totalQuestions').textContent = questions.length;
-  }
-
-  function formatTime(seconds) {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  }
-
-  function startTimer() {
-    startTime = Date.now();
-    timerInterval = setInterval(() => {
-      let elapsed = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('timeDisplay').textContent = formatTime(elapsed);
-    }, 1000);
-  }
-
-  function stopTimer() {
-    clearInterval(timerInterval);
-  }
-
-  function shuffleArray(arr) {
-    for(let i = arr.length -1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i+1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  }
-
-  function loadExcelData(data) {
-    const worksheet = data.Sheets[data.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, {defval:""});
-    // 验证必要列
-    const requiredCols = ['题号','题干','选项A','选项B','选项C','选项D','正确答案','解析'];
-    const keys = Object.keys(jsonData[0] || {});
-    for (const col of requiredCols) {
-      if (!keys.includes(col)) {
-        alert(`Excel缺少必要列：${col}`);
-        return false;
-      }
-    }
-    questions = jsonData.map(item => ({
-      id: item['题号'],
-      question: item['题干'],
-      options: [item['选项A'], item['选项B'], item['选项C'], item['选项D']],
-      answer: item['正确答案'].trim(),
-      explanation: item['解析']
-    }));
-    // 随机打乱题目
-    shuffleArray(questions);
-
-    // 存本地缓存
-    localStorage.setItem('questions', JSON.stringify(questions));
-    // 更新按钮状态
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('showFavoritesBtn').disabled = false;
-    document.getElementById('totalQuestions').textContent = questions.length;
-    alert('题目导入成功！');
-    return true;
-  }
-
-  function renderQuestion() {
-    if (questions.length === 0) return;
-    const q = questions[currentIdx];
-    document.getElementById('question-text').textContent = q.question;
-
-    const optionsContainer = document.getElementById('options-container');
-    optionsContainer.innerHTML = '';
-    q.options.forEach((opt, i) => {
-      const div = document.createElement('div');
-      div.className = 'option';
-      div.textContent = opt;
-      div.dataset.opt = String.fromCharCode(65 + i);
-      div.onclick = () => selectOption(div);
-      optionsContainer.appendChild(div);
+    document.getElementById('excelFile').addEventListener('change', function (e) {
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        questions = rows.slice(1).map(row => ({
+          id: row[0],
+          question: row[1],
+          options: [row[2], row[3], row[4], row[5]],
+          answer: row[6],
+          explanation: row[7]
+        })).filter(q => q.question);
+        localStorage.setItem('quizData', JSON.stringify(questions));
+        startQuiz();
+      };
+      reader.readAsArrayBuffer(e.target.files[0]);
     });
 
-    // 隐藏解析
-    const expl = document.getElementById('explanation');
-    expl.style.display = 'none';
-    expl.textContent = '';
-
-    // 更新进度和正确率
-    document.getElementById('currentIndex').textContent = currentIdx + 1;
-    document.getElementById('accuracy').textContent = answeredCount === 0 ? '0%' : ((correctCount / answeredCount)*100).toFixed(1) + '%';
-
-    // 重置按钮状态
-    document.getElementById('nextBtn').disabled = true;
-    document.getElementById('collectBtn').disabled = false;
-    updateCollectBtnText();
-
-    // 显示题目区域、进度区、操作按钮
-    document.getElementById('question-box').style.display = 'block';
-    document.getElementById('progress').style.display = 'block';
-    document.getElementById('action-buttons').style.display = 'flex';
-  }
-
-  function updateCollectBtnText() {
-    const currentQId = questions[currentIdx].id;
-    const collected = favorites.includes(currentQId);
-    document.getElementById('collectBtn').textContent = collected ? '取消收藏' : '收藏';
-  }
-
-  let answered = false; // 本题是否已答
-
-  function selectOption(selectedDiv) {
-    if (answered) return; // 防止重复点选
-    answered = true;
-    const currentQ = questions[currentIdx];
-    const userChoice = selectedDiv.dataset.opt;
-    const optionsDivs = document.querySelectorAll('#options-container .option');
-
-    // 标记对错
-    optionsDivs.forEach(div => {
-      if (div.dataset.opt === currentQ.answer) {
-        div.classList.add('correct');
+    function startQuiz() {
+      if (!questions.length) {
+        const stored = localStorage.getItem('quizData');
+        if (stored) questions = JSON.parse(stored);
       }
-    });
-
-    if (userChoice === currentQ.answer) {
-      selectedDiv.classList.add('correct');
-      correctCount++;
-    } else {
-      selectedDiv.classList.add('wrong');
+      setInterval(updateTimer, 1000);
+      nextQuestion();
     }
-    answeredCount++;
 
-    // 显示解析
-    const expl = document.getElementById('explanation');
-    expl.style.display = 'block';
-    expl.textContent = '解析：' + currentQ.explanation;
-
-    // 更新正确率
-    document.getElementById('accuracy').textContent = ((correctCount / answeredCount)*100).toFixed(1) + '%';
-
-    // 启用下一题按钮
-    document.getElementById('nextBtn').disabled = false;
-
-    // 收藏按钮可用
-    document.getElementById('collectBtn').disabled = false;
-  }
-
-  function nextQuestion() {
-    answered = false;
-    currentIdx++;
-    if (currentIdx >= questions.length) {
-      alert(`已完成所有题目！正确率：${((correctCount / answeredCount)*100).toFixed(1)}%`);
-      currentIdx = 0;
-      correctCount = 0;
-      answeredCount = 0;
-      document.getElementById('timeDisplay').textContent = '00:00';
-      stopTimer();
-      return;
+    function updateTimer() {
+      const seconds = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('timer').innerText = `用时: ${seconds}秒`;
     }
-    renderQuestion();
-  }
 
-  function toggleCollect() {
-    const currentQId = questions[currentIdx].id;
-    const idx = favorites.indexOf(currentQId);
-    if (idx === -1) {
-      favorites.push(currentQId);
-    } else {
-      favorites.splice(idx, 1);
+    function nextQuestion() {
+      document.getElementById('explanation').innerHTML = '';
+      const source = isFavoriteMode ? favorites.map(id => questions.find(q => q.id === id)) : questions;
+      if (!source.length) return alert("没有题目了");
+      currentQuestion = source[Math.floor(Math.random() * source.length)];
+      showQuestion(currentQuestion);
     }
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-    updateCollectBtnText();
-  }
 
-  function showFavorites() {
-    if (favorites.length === 0) {
-      alert('收藏册为空');
-      return;
+    function showQuestion(q) {
+      document.getElementById('questionCard').classList.remove('hidden');
+      document.getElementById('questionText').innerHTML = `<strong>题目：</strong>${q.question}`;
+      const optionsHTML = q.options.map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
+      }).join('');
+      document.getElementById('optionsContainer').innerHTML = optionsHTML;
+      updateStats();
     }
-    // 只用收藏题目过滤原题库
-    const favQuestions = questions.filter(q => favorites.includes(q.id));
-    if (favQuestions.length === 0) {
-      alert('收藏题目不在当前题库中，请重新上传题库或清空收藏');
-      return;
+
+    function checkAnswer(elem, selected, correct) {
+      const allOptions = document.querySelectorAll('.option');
+      if ([...allOptions].some(opt => opt.classList.contains('correct') || opt.classList.contains('wrong'))) return;
+      allOptions.forEach(opt => {
+        const text = opt.textContent.trim();
+        if (text.startsWith(correct)) opt.classList.add('correct');
+        if (opt === elem && !text.startsWith(correct)) opt.classList.add('wrong');
+      });
+      if (selected === correct) correctCount++;
+      totalAnswered++;
+      document.getElementById('explanation').innerHTML = `<strong>解析：</strong>${currentQuestion.explanation}`;
+      updateStats();
     }
-    // 切换到收藏题模式
-    questions = favQuestions;
-    currentIdx = 0;
-    correctCount = 0;
-    answeredCount = 0;
-    renderQuestion();
-  }
 
-  document.getElementById('fileInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, {type: 'array'});
-      if (loadExcelData(workbook)) {
-        currentIdx = 0;
-        correctCount = 0;
-        answeredCount = 0;
-        renderQuestion();
-        startTimer();
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  });
-
-  document.getElementById('startBtn').addEventListener('click', () => {
-    if (questions.length === 0) {
-      alert('请先上传题库文件');
-      return;
+    function updateStats() {
+      const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
+      document.getElementById('stats').innerText = `已做 ${totalAnswered} 题，正确率：${rate}%`;
     }
-    currentIdx = 0;
-    correctCount = 0;
-    answeredCount = 0;
-    renderQuestion();
-    startTimer();
-  });
 
-  document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+    function toggleFavorite() {
+      if (!currentQuestion) return;
+      const index = favorites.indexOf(currentQuestion.id);
+      if (index === -1) favorites.push(currentQuestion.id);
+      else favorites.splice(index, 1);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+    }
 
-  document.getElementById('collectBtn').addEventListener('click', toggleCollect);
+    function toggleFavorites() {
+      isFavoriteMode = !isFavoriteMode;
+      nextQuestion();
+    }
 
-  document.getElementById('showFavoritesBtn').addEventListener('click', () => {
-    showFavorites();
-    startTimer();
-  });
-
-  document.getElementById('viewFavoritesBtn').addEventListener('click', () => {
-    showFavorites();
-    startTime = Date.now(); // 重新计时
-    startTimer();
-  });
-
-</script>
-
+    const storedData = localStorage.getItem('quizData');
+    if (storedData) {
+      questions = JSON.parse(storedData);
+      startQuiz();
+    }
+  </script>
 </body>
 </html>
