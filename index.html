@@ -170,63 +170,32 @@
     showQuestion(currentQuestion);
   }
 
-  function showQuestion(q) {
-    document.getElementById('questionCard').classList.remove('hidden');
-    document.getElementById('questionText').innerHTML = `<strong>题目：</strong>${q.question}`;
-    const optionsHTML = q.options.map((opt, i) => {
-      const letter = String.fromCharCode(65 + i);
-      return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
-    }).join('');
-    document.getElementById('optionsContainer').innerHTML = optionsHTML;
-    updateStats();
+function showQuestion(q) {
+  document.getElementById('questionCard').classList.remove('hidden');
+
+  let displayPrefix = '';
+  if (isFavoriteMode) {
+    const favoriteList = favorites.map(fid => questions.find(q => String(q.id) === String(fid))).filter(Boolean);
+    const currentIndex = favoriteList.findIndex(item => item.id === q.id) + 1;
+    const total = favoriteList.length;
+    displayPrefix = `${currentIndex}/${total} 题目：`;
+  } else {
+    const unansweredList = questions.filter(q => !answeredIds.includes(q.id));
+    const currentIndex = questions.findIndex(item => item.id === q.id) + 1;
+    const total = questions.length;
+    displayPrefix = `${currentIndex}/${total} 题目：`;
   }
 
-  function checkAnswer(elem, selected, correct) {
-    const allOptions = document.querySelectorAll('.option');
-    if ([...allOptions].some(opt => opt.classList.contains('correct') || opt.classList.contains('wrong'))) return;
+  document.getElementById('questionText').innerHTML = `<strong>${displayPrefix}</strong>${q.question}`;
 
-    allOptions.forEach(opt => {
-      const text = opt.textContent.trim();
-      if (text.startsWith(correct)) opt.classList.add('correct');
-      if (opt === elem && !text.startsWith(correct)) opt.classList.add('wrong');
-    });
+  const optionsHTML = q.options.map((opt, i) => {
+    const letter = String.fromCharCode(65 + i);
+    return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
+  }).join('');
+  document.getElementById('optionsContainer').innerHTML = optionsHTML;
 
-    if (selected === correct) correctCount++;
-    totalAnswered++;
-
-    if (!answeredIds.includes(currentQuestion.id)) {
-      answeredIds.push(currentQuestion.id);
-    }
-
-    document.getElementById('explanation').innerHTML = `<strong>解析：</strong>${currentQuestion.explanation}`;
-    updateStats();
-  }
-
-  function updateStats() {
-    const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
-    document.getElementById('stats').innerText = `已做 ${totalAnswered} 题，正确率：${rate}%`;
-  }
-
-  function toggleFavorite() {
-    if (!currentQuestion) return;
-    const id = String(currentQuestion.id);
-    const index = favorites.indexOf(id);
-    if (index === -1) favorites.push(id);
-    else favorites.splice(index, 1);
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-    alert(index === -1 ? "已添加至收藏" : "已取消收藏");
-  }
-
-  function toggleFavorites() {
-    isFavoriteMode = !isFavoriteMode;
-    nextQuestion();
-  }
-
-  const storedData = localStorage.getItem('quizData');
-  if (storedData) {
-    questions = JSON.parse(storedData);
-    startQuiz();
-  }
+  updateStats();
+}
 </script>
 </body>
 </html>
