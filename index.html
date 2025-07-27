@@ -103,105 +103,130 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script>
-    let questions = [];
-    let currentQuestion = null;
-    let correctCount = 0;
-    let totalAnswered = 0;
-    let startTime = Date.now();
-    let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    let isFavoriteMode = false;
+<script>
+  let questions = [];
+  let currentQuestion = null;
+  let correctCount = 0;
+  let totalAnswered = 0;
+  let startTime = Date.now();
+  let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+  let isFavoriteMode = false;
+  let answeredIds = [];
 
-    document.getElementById('excelFile').addEventListener('change', function (e) {
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        questions = rows.slice(1).map(row => ({
-          id: row[0],
-          question: row[1],
-          options: [row[2], row[3], row[4], row[5]],
-          answer: row[6],
-          explanation: row[7]
-        })).filter(q => q.question);
-        localStorage.setItem('quizData', JSON.stringify(questions));
-        startQuiz();
-      };
-      reader.readAsArrayBuffer(e.target.files[0]);
+  document.getElementById('excelFile').addEventListener('change', function (e) {
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      const data = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      questions = rows.slice(1).map(row => ({
+        id: String(row[0]), // 强制 id 为字符串
+        question: row[1],
+        options: [row[2], row[3], row[4], row[5]],
+        answer: row[6],
+        explanation: row[7]
+      })).filter(q => q.question);
+      localStorage.setItem('quizData', JSON.stringify(questions));
+      answeredIds = []; // 清空已做记录
+      startQuiz();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+  });
+
+  function startQuiz() {
+    if (!questions.length) {
+      const stored = localStorage.getItem('quizData');
+      if (stored) questions = JSON.parse(stored);
+    }
+    startTime = Date.now();
+    setInterval(updateTimer, 1000);
+    nextQuestion();
+  }
+
+  function updateTimer() {
+    const seconds = Math.floor((Date.now() - startTime) / 1000);
+    document.getElementById('timer').innerText = `用时: ${seconds}秒`;
+  }
+
+  function nextQuestion() {
+    document.getElementById('explanation').innerHTML = '';
+    const source = isFavoriteMode
+      ? favorites.map(fid => questions.find(q => String(q.id) === String(fid))).filter(Boolean)
+      : questions.filter(q => !answeredIds.includes(q.id));
+
+    if (!source.length) {
+      if (isFavoriteMode) {
+        alert("收藏夹中没有更多题目了！");
+        isFavoriteMode = false;
+        return nextQuestion();
+      } else {
+        alert("题目已全部刷完！");
+        return;
+      }
+    }
+
+    currentQuestion = source[Math.floor(Math.random() * source.length)];
+    showQuestion(currentQuestion);
+  }
+
+  function showQuestion(q) {
+    document.getElementById('questionCard').classList.remove('hidden');
+    document.getElementById('questionText').innerHTML = `<strong>题目：</strong>${q.question}`;
+    const optionsHTML = q.options.map((opt, i) => {
+      const letter = String.fromCharCode(65 + i);
+      return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
+    }).join('');
+    document.getElementById('optionsContainer').innerHTML = optionsHTML;
+    updateStats();
+  }
+
+  function checkAnswer(elem, selected, correct) {
+    const allOptions = document.querySelectorAll('.option');
+    if ([...allOptions].some(opt => opt.classList.contains('correct') || opt.classList.contains('wrong'))) return;
+
+    allOptions.forEach(opt => {
+      const text = opt.textContent.trim();
+      if (text.startsWith(correct)) opt.classList.add('correct');
+      if (opt === elem && !text.startsWith(correct)) opt.classList.add('wrong');
     });
 
-    function startQuiz() {
-      if (!questions.length) {
-        const stored = localStorage.getItem('quizData');
-        if (stored) questions = JSON.parse(stored);
-      }
-      setInterval(updateTimer, 1000);
-      nextQuestion();
+    if (selected === correct) correctCount++;
+    totalAnswered++;
+
+    if (!answeredIds.includes(currentQuestion.id)) {
+      answeredIds.push(currentQuestion.id);
     }
 
-    function updateTimer() {
-      const seconds = Math.floor((Date.now() - startTime) / 1000);
-      document.getElementById('timer').innerText = `用时: ${seconds}秒`;
-    }
+    document.getElementById('explanation').innerHTML = `<strong>解析：</strong>${currentQuestion.explanation}`;
+    updateStats();
+  }
 
-    function nextQuestion() {
-      document.getElementById('explanation').innerHTML = '';
-      const source = isFavoriteMode ? favorites.map(id => questions.find(q => q.id === id)) : questions;
-      if (!source.length) return alert("没有题目了");
-      currentQuestion = source[Math.floor(Math.random() * source.length)];
-      showQuestion(currentQuestion);
-    }
+  function updateStats() {
+    const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
+    document.getElementById('stats').innerText = `已做 ${totalAnswered} 题，正确率：${rate}%`;
+  }
 
-    function showQuestion(q) {
-      document.getElementById('questionCard').classList.remove('hidden');
-      document.getElementById('questionText').innerHTML = `<strong>题目：</strong>${q.question}`;
-      const optionsHTML = q.options.map((opt, i) => {
-        const letter = String.fromCharCode(65 + i);
-        return `<div class="option" onclick="checkAnswer(this, '${letter}', '${q.answer}')">${letter}. ${opt}</div>`;
-      }).join('');
-      document.getElementById('optionsContainer').innerHTML = optionsHTML;
-      updateStats();
-    }
+  function toggleFavorite() {
+    if (!currentQuestion) return;
+    const id = String(currentQuestion.id);
+    const index = favorites.indexOf(id);
+    if (index === -1) favorites.push(id);
+    else favorites.splice(index, 1);
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+    alert(index === -1 ? "已添加至收藏" : "已取消收藏");
+  }
 
-    function checkAnswer(elem, selected, correct) {
-      const allOptions = document.querySelectorAll('.option');
-      if ([...allOptions].some(opt => opt.classList.contains('correct') || opt.classList.contains('wrong'))) return;
-      allOptions.forEach(opt => {
-        const text = opt.textContent.trim();
-        if (text.startsWith(correct)) opt.classList.add('correct');
-        if (opt === elem && !text.startsWith(correct)) opt.classList.add('wrong');
-      });
-      if (selected === correct) correctCount++;
-      totalAnswered++;
-      document.getElementById('explanation').innerHTML = `<strong>解析：</strong>${currentQuestion.explanation}`;
-      updateStats();
-    }
+  function toggleFavorites() {
+    isFavoriteMode = !isFavoriteMode;
+    nextQuestion();
+  }
 
-    function updateStats() {
-      const rate = totalAnswered ? ((correctCount / totalAnswered) * 100).toFixed(1) : 0;
-      document.getElementById('stats').innerText = `已做 ${totalAnswered} 题，正确率：${rate}%`;
-    }
-
-    function toggleFavorite() {
-      if (!currentQuestion) return;
-      const index = favorites.indexOf(currentQuestion.id);
-      if (index === -1) favorites.push(currentQuestion.id);
-      else favorites.splice(index, 1);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-    }
-
-    function toggleFavorites() {
-      isFavoriteMode = !isFavoriteMode;
-      nextQuestion();
-    }
-
-    const storedData = localStorage.getItem('quizData');
-    if (storedData) {
-      questions = JSON.parse(storedData);
-      startQuiz();
-    }
-  </script>
+  const storedData = localStorage.getItem('quizData');
+  if (storedData) {
+    questions = JSON.parse(storedData);
+    startQuiz();
+  }
+</script>
 </body>
 </html>
